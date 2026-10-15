@@ -1,0 +1,163 @@
+name: Tonalpouhqui · publicar beta Android firmada
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tonalpouhqui-public-beta
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Obtener repo público (solo documentación)
+        uses: actions/checkout@v4
+        with:
+          path: public-repo
+          persist-credentials: false
+
+      - name: Obtener código privado del proyecto
+        uses: actions/checkout@v4
+        with:
+          repository: zoniksr/Tonalpouhqui-Android
+          ref: main
+          token: ${{ secrets.TONALPOUHQUI_PRIVATE_REPO_TOKEN }}
+          path: app-source
+          persist-credentials: false
+
+      - name: Verificar autorización humana y código fuente
+        env:
+          PRIVACY_APPROVED: ${{ secrets.TONALPOUHQUI_PRIVACY_REVIEWED }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PRIVACY_APPROVED" = "YES" || { echo "::error::Falta la revisión de privacidad"; exit 1; }
+          cd app-source
+          test -f app/build.gradle.kts
+          test -f app/src/main/java/com/behost/tonalpouhqui/license/PublicBetaPolicy.kt
+          grep -F 'versionCode = 11' app/build.gradle.kts
+          grep -F 'versionName = "1.9.1"' app/build.gradle.kts
+          grep -F 'create("beta")' app/build.gradle.kts
+          grep -F 'PUBLIC_BETA_EXPIRY_EPOCH", "1796083200L"' app/build.gradle.kts
+          if grep -Fq 'LICENSE_BYPASS", "true"' app/build.gradle.kts; then
+            echo "::error::Se encontró omisión insegura de licencia"; exit 1
+          fi
+          if grep -Fq 'debug-behost-license' app/src/main/java/com/behost/tonalpouhqui/license/LicenseManager.kt; then
+            echo "::error::Token de desarrollo dentro de licencia"; exit 1
+          fi
+
+      - name: Configurar JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar Android 36
+        shell: bash
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Preparar firma privada y variables sin publicarlas
+        env:
+          APK_KEYSTORE_B64: ${{ secrets.TONALPOUHQUI_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.TONALPOUHQUI_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.TONALPOUHQUI_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.TONALPOUHQUI_KEY_PASSWORD }}
+          LICENSE_PEM: ${{ secrets.TONALPOUHQUI_LICENSE_PUBLIC_KEY_PEM }}
+          API_BASE: ${{ secrets.TONALPOUHQUI_API_BASE_URL }}
+          WEATHER_PROXY: ${{ secrets.TONALPOUHQUI_WEATHER_PROXY_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,base64,pathlib
+          root=pathlib.Path("app-source")
+          req=["APK_KEYSTORE_B64","STORE_PASSWORD","KEY_ALIAS","KEY_PASSWORD"]
+          missing=[k for k in req if not os.environ.get(k)]
+          if missing: raise SystemExit("No están configurados los secretos de firma requeridos: "+", ".join(missing))
+          (root/"signing").mkdir(exist_ok=True)
+          (root/"signing/tonalpouhqui-release.jks").write_bytes(base64.b64decode(os.environ["APK_KEYSTORE_B64"],validate=True))
+          def prop(value):
+              return value.replace("\\","\\\\").replace("\r","\\r").replace("\n","\\n").replace(":","\\:").replace("=","\\=")
+          values={
+              "KEYSTORE_FILE":"signing/tonalpouhqui-release.jks",
+              "KEYSTORE_PASSWORD":os.environ["STORE_PASSWORD"],
+              "KEY_ALIAS":os.environ["KEY_ALIAS"],
+              "KEY_PASSWORD":os.environ["KEY_PASSWORD"],
+              "LICENSE_PUBLIC_KEY_PEM":os.environ.get("LICENSE_PEM",""),
+              "BEHOST_API_BASE_URL":os.environ.get("API_BASE") or "https://example.invalid/tonalpouhqui/",
+              "WEATHER_API_BASE_URL":os.environ.get("WEATHER_PROXY",""),
+          }
+          with (root/"local.properties").open("w") as f:
+              for k,v in values.items(): f.write(k+"="+prop(v)+"\n")
+          PY
+          FP=$(keytool -exportcert -keystore app-source/signing/tonalpouhqui-release.jks \
+            -alias "$KEY_ALIAS" -storepass "$STORE_PASSWORD" | sha256sum | awk '{print $1}')
+          test ${#FP} -eq 64
+          echo "BEHOST_SIGNING_CERT_SHA256=$FP" >> app-source/local.properties
+
+      - name: Ejecutar pruebas y generar APK beta firmada
+        working-directory: app-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:assembleBeta --no-daemon
+
+      - name: Verificar APK, certificado y variante
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app-source/app/build/outputs/apk/beta/app-beta.apk"
+          test -s "$APK" || { echo "::error::No hay APK beta"; exit 1; }
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          SIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$SIGNER" verify --verbose --print-certs "$APK"
+          BADGING=$("$AAPT" dump badging "$APK")
+          echo "$BADGING" | grep -F "versionName='1.9.1-beta.1'" >/dev/null
+          echo "$BADGING" | grep -F "name='com.behost.tonalpouhqui'" >/dev/null
+          if echo "$BADGING" | grep -Fq 'application-debuggable'; then
+            echo "::error::APK es depurable"; exit 1
+          fi
+          sha256sum "$APK" > app-source/Tonalpouhqui_v1.9.1_beta.apk.sha256
+          mkdir -p dist
+          cp "$APK" dist/Tonalpouhqui_v1.9.1_beta.apk
+          cp app-source/Tonalpouhqui_v1.9.1_beta.apk.sha256 dist/SHA256.txt
+
+      - name: Guardar artefactos verificados
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tonalpouhqui_v1.9.1_beta_signed
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publicar GitHub Pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="tonalpouhqui-v1.9.1-beta.1"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::El tag ya existe; no se sobrescriben binarios publicados."; exit 1
+          fi
+          gh release create "$TAG" \
+            "dist/Tonalpouhqui_v1.9.1_beta.apk#Tonalpouhqui_v1.9.1_beta.apk" \
+            "dist/SHA256.txt#SHA256.txt" \
+            --repo "$GITHUB_REPOSITORY" \
+            --prerelease \
+            --title "TONALPOUHQUI · Beta pública v1.9.1" \
+            --notes-file public-repo/tonalpouhqui/RELEASE_NOTES_BETA_PUBLICA.md
