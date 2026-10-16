@@ -110,6 +110,8 @@ jobs:
           FP=$(keytool -exportcert -keystore app-source/signing/tonalpouhqui-release.jks \
             -alias "$KEY_ALIAS" -storepass:env STORE_PASSWORD | sha256sum | awk '{print $1}')
           test ${#FP} -eq 64
+          EXPECTED_FP=$(tr '[:upper:]' '[:lower:]' < app-source/release/RELEASE_CERTIFICATE_SHA256.txt | tr -d ':\r\n ')
+          test "$FP" = "$EXPECTED_FP" || { echo "::error::El keystore no coincide con el certificado release aprobado"; exit 1; }
           echo "BEHOST_SIGNING_CERT_SHA256=$FP" >> app-source/local.properties
 
       - name: Ejecutar pruebas y generar APK beta firmada
