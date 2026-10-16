@@ -33,10 +33,12 @@ jobs:
       - name: Verificar autorización humana y código fuente
         env:
           PRIVACY_APPROVED: ${{ secrets.TONALPOUHQUI_PRIVACY_REVIEWED }}
+          DEVICE_TESTED: ${{ secrets.TONALPOUHQUI_DEVICE_TESTED }}
         shell: bash
         run: |
           set -euo pipefail
           test "$PRIVACY_APPROVED" = "YES" || { echo "::error::Falta la revisión de privacidad"; exit 1; }
+          test "$DEVICE_TESTED" = "YES" || { echo "::error::Faltan pruebas físicas de voz y Vigilia"; exit 1; }
           cd app-source
           test -f app/build.gradle.kts
           test -f app/src/main/java/com/behost/tonalpouhqui/license/PublicBetaPolicy.kt
@@ -60,10 +62,10 @@ jobs:
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Instalar Android 36
+      - name: Instalar SDK de compilación y build tools
         shell: bash
         run: |
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          sdkmanager "platforms;android-37.2" "build-tools;36.0.0"
 
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -99,13 +101,14 @@ jobs:
               "KEY_PASSWORD":os.environ["KEY_PASSWORD"],
               "LICENSE_PUBLIC_KEY_PEM":os.environ.get("LICENSE_PEM",""),
               "BEHOST_API_BASE_URL":os.environ.get("API_BASE") or "https://example.invalid/tonalpouhqui/",
-              "WEATHER_API_BASE_URL":os.environ.get("WEATHER_PROXY",""),
+              "WEATHER_API_BASE_URL":"",
+              "ALLOW_REMOTE_RESEARCH":"false",
           }
           with (root/"local.properties").open("w") as f:
               for k,v in values.items(): f.write(k+"="+prop(v)+"\n")
           PY
           FP=$(keytool -exportcert -keystore app-source/signing/tonalpouhqui-release.jks \
-            -alias "$KEY_ALIAS" -storepass "$STORE_PASSWORD" | sha256sum | awk '{print $1}')
+            -alias "$KEY_ALIAS" -storepass:env STORE_PASSWORD | sha256sum | awk '{print $1}')
           test ${#FP} -eq 64
           echo "BEHOST_SIGNING_CERT_SHA256=$FP" >> app-source/local.properties
 
@@ -114,7 +117,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle :app:testDebugUnitTest :app:assembleBeta --no-daemon
+          python3 scripts/preflight_codex.py --configured
+          ./gradlew :app:testDebugUnitTest :app:assembleBeta --no-daemon
 
       - name: Verificar APK, certificado y variante
         shell: bash
@@ -131,7 +135,12 @@ jobs:
           if echo "$BADGING" | grep -Fq 'application-debuggable'; then
             echo "::error::APK es depurable"; exit 1
           fi
-          sha256sum "$APK" > app-source/Tonalpouhqui_v1.9.1_beta.apk.sha256
+          EXPECTED_CERT=$(sed -n 's/^BEHOST_SIGNING_CERT_SHA256=//p' app-source/local.properties)
+          BEHOST_SIGNING_CERT_SHA256="$EXPECTED_CERT" bash app-source/scripts/verificar_beta.sh "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 "$APK"
+          ACTUAL_CERT=$("$SIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          test "$ACTUAL_CERT" = "$EXPECTED_CERT"
+          sha256sum "$APK" | sed 's@  .*@  Tonalpouhqui_v1.9.1_beta.apk@' > app-source/Tonalpouhqui_v1.9.1_beta.apk.sha256
           mkdir -p dist
           cp "$APK" dist/Tonalpouhqui_v1.9.1_beta.apk
           cp app-source/Tonalpouhqui_v1.9.1_beta.apk.sha256 dist/SHA256.txt
@@ -161,3 +170,4 @@ jobs:
             --prerelease \
             --title "TONALPOUHQUI · Beta pública v1.9.1" \
             --notes-file public-repo/tonalpouhqui/RELEASE_NOTES_BETA_PUBLICA.md
+
