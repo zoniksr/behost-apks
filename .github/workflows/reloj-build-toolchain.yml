@@ -6,106 +6,52 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
-  prepare:
+  transfer:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
-      - uses: actions/setup-java@v5
+      - uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: '17'
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: platform-tools
-          log-accepted-android-sdk-licenses: false
-      - name: Download pinned build tools and resolve public dependencies
+          name: reloj-android-offline-tools
+          run-id: 39515170911
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/input
+      - name: Verify and split existing public toolchain archive
         shell: bash
         run: |
           set -euo pipefail
-          export GRADLE_USER_HOME="$RUNNER_TEMP/reloj-gradle-home"
-          mkdir -p "$RUNNER_TEMP/reloj-tools" "$RUNNER_TEMP/reloj-probe/app/src/main/java/example/probe"
-          cd "$RUNNER_TEMP/reloj-tools"
-          curl -fsSL --retry 3 https://services.gradle.org/distributions/gradle-8.13-bin.zip -o gradle.zip
-          curl -fsSL --retry 3 https://services.gradle.org/distributions/gradle-8.13-bin.zip.sha256 -o gradle.sha256
-          echo "$(cat gradle.sha256)  gradle.zip" | sha256sum -c -
-          unzip -q gradle.zip
-          rm gradle.zip
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
-          cd "$RUNNER_TEMP/reloj-probe"
-          cat > settings.gradle <<'EOF'
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
-          rootProject.name='OfflineToolchainProbe'
-          include ':app'
-          EOF
-          cat > build.gradle <<'EOF'
-          plugins { id 'com.android.application' version '8.10.1' apply false }
-          EOF
-          cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          EOF
-          cat > app/build.gradle <<'EOF'
-          plugins { id 'com.android.application' }
-          android {
-            namespace 'example.probe'
-            compileSdk 35
-            buildToolsVersion '35.0.0'
-            defaultConfig {
-              applicationId 'example.probe'
-              minSdk 23
-              targetSdk 35
-              versionCode 1
-              versionName '1.0'
-              testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
-              ndk { abiFilters 'armeabi-v7a','arm64-v8a' }
-            }
-            buildFeatures { buildConfig true }
-            compileOptions {
-              sourceCompatibility JavaVersion.VERSION_17
-              targetCompatibility JavaVersion.VERSION_17
-            }
-            packaging { resources { excludes += ['META-INF/DEPENDENCIES','META-INF/LICENSE','META-INF/NOTICE'] } }
-          }
-          dependencies {
-            androidTestImplementation 'androidx.test:runner:1.6.2'
-            androidTestImplementation 'androidx.test.ext:junit:1.2.1'
-            implementation 'androidx.core:core:1.13.1'
-            implementation 'androidx.activity:activity:1.9.3'
-            implementation 'androidx.camera:camera-core:1.4.2'
-            implementation 'androidx.camera:camera-camera2:1.4.2'
-            implementation 'androidx.camera:camera-lifecycle:1.4.2'
-            implementation 'androidx.camera:camera-view:1.4.2'
-            implementation 'com.google.mlkit:face-detection:16.1.7'
-            implementation 'org.opencv:opencv:4.12.0'
-            testImplementation 'junit:junit:4.13.2'
-            implementation('com.journeyapps:zxing-android-embedded:4.3.0') { exclude group:'com.google.zxing', module:'core' }
-            implementation 'com.google.zxing:core:3.3.0'
-          }
-          EOF
-          echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="Build tools probe" android:theme="@android:style/Theme.Material.Light.NoActionBar"><activity android:name=".MainActivity" android:exported="false" /></application></manifest>' > app/src/main/AndroidManifest.xml
-          echo 'package example.probe; public class MainActivity extends android.app.Activity {}' > app/src/main/java/example/probe/MainActivity.java
-          "$RUNNER_TEMP/reloj-tools/gradle-8.13/bin/gradle" --no-daemon --max-workers=2 assembleDebug assembleDebugAndroidTest testDebugUnitTest lintDebug
-          "$RUNNER_TEMP/reloj-tools/gradle-8.13/bin/gradle" --offline --no-daemon --max-workers=2 clean assembleDebug
-          mkdir -p "$RUNNER_TEMP/reloj-tools/sdk/platforms" "$RUNNER_TEMP/reloj-tools/sdk/build-tools"
-          cp -a "$ANDROID_HOME/platforms/android-35" "$RUNNER_TEMP/reloj-tools/sdk/platforms/"
-          cp -a "$ANDROID_HOME/build-tools/35.0.0" "$RUNNER_TEMP/reloj-tools/sdk/build-tools/"
-          cp -a "$ANDROID_HOME/platform-tools" "$RUNNER_TEMP/reloj-tools/sdk/"
-          cp -a "$ANDROID_HOME/licenses" "$RUNNER_TEMP/reloj-tools/sdk/"
-          rm -rf "$GRADLE_USER_HOME/daemon" "$GRADLE_USER_HOME/workers" "$GRADLE_USER_HOME/.tmp"
-          find "$GRADLE_USER_HOME" -name '*.lock' -delete
-          mv "$GRADLE_USER_HOME" "$RUNNER_TEMP/reloj-tools/gradle-home"
-          du -sh "$RUNNER_TEMP/reloj-tools"/*
-          tar -czf "$RUNNER_TEMP/reloj-android-tools.tar.gz" -C "$RUNNER_TEMP/reloj-tools" .
-          sha256sum "$RUNNER_TEMP/reloj-android-tools.tar.gz" > "$RUNNER_TEMP/reloj-tools-SHA256.txt"
-          ls -lh "$RUNNER_TEMP/reloj-android-tools.tar.gz"
+          cd "$RUNNER_TEMP/input"
+          expected="$(awk '{print $1}' reloj-tools-SHA256.txt)"
+          echo "$expected  reloj-android-tools.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/parts"
+          split -b 300M -d -a 2 reloj-android-tools.tar.gz "$RUNNER_TEMP/parts/reloj-tools.tar.gz.part-"
+          cd "$RUNNER_TEMP/parts"
+          sha256sum reloj-tools.tar.gz.part-* > PARTS-SHA256.txt
+          printf '%s  reloj-android-tools.tar.gz\n' "$expected" > FULL-SHA256.txt
+          ls -lh
       - uses: actions/upload-artifact@v4
         with:
-          name: reloj-android-offline-tools
+          name: reloj-tools-part-00
           path: |
-            ${{ runner.temp }}/reloj-android-tools.tar.gz
-            ${{ runner.temp }}/reloj-tools-SHA256.txt
+            ${{ runner.temp }}/parts/reloj-tools.tar.gz.part-00
+            ${{ runner.temp }}/parts/PARTS-SHA256.txt
+            ${{ runner.temp }}/parts/FULL-SHA256.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reloj-tools-part-01
+          path: ${{ runner.temp }}/parts/reloj-tools.tar.gz.part-01
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reloj-tools-part-02
+          path: ${{ runner.temp }}/parts/reloj-tools.tar.gz.part-02
           if-no-files-found: error
           compression-level: 0
           retention-days: 2
