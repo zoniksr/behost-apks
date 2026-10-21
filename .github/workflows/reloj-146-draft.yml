@@ -1,0 +1,41 @@
+name: Preparar borrador Reloj Be 1.1.46
+on:
+  push:
+    branches: [release/reloj-be-v1.1.46-preparacion]
+    paths: [.github/workflows/reloj-146-draft.yml]
+permissions:
+  contents: write
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Crear o comprobar borrador sin APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          tag="reloj-be-v1.1.46"
+          file="Reloj_Be_Trabajador_v1.1.46_UBICACION_GUIADA_LOGO2_PRUEBAS.apk"
+          sha="b153ee6862735e20b98e16092ffc7c24b199291d62ef04e625bfa2e4f328889b"
+          if gh api "repos/$repo/releases/tags/$tag" >/tmp/existing.json 2>/dev/null; then
+            echo "La release ya existe; no modificar."
+            exit 0
+          fi
+          cat > /tmp/release-notes.txt <<EOF
+          Reloj Be v1.1.46 · Ubicación guiada · Logo 2 · Pruebas
+
+          PENDIENTE DE SUBIR APK. No publicar este borrador hasta adjuntar y comprobar el archivo correcto.
+
+          APK: $file
+          SHA-256: $sha
+          Edición de pruebas, misma firma que 1.1.45, controles de ubicación y solicitud a RH.
+          El ZIP del Implementador correspondiente es v1.3.163. No adjuntar código ni llaves privadas.
+          Cámara, GPS y marcación real siguen pendientes de validación física.
+          EOF
+          gh api --method POST "repos/$repo/releases" -f tag_name="$tag" -f name="Reloj Be v1.1.46 · Ubicación guiada · Pruebas" -f target_commitish=main -F draft=true -F prerelease=true --raw-field body="$(cat /tmp/release-notes.txt)" > /tmp/created.json
+          id="$(jq -r .id /tmp/created.json)"
+          printf '%s  %s\n' "$sha" "$file" > /tmp/SHA256SUMS.txt
+          gh api --method POST -H "Content-Type: text/plain" --input /tmp/SHA256SUMS.txt "https://uploads.github.com/repos/$repo/releases/$id/assets?name=SHA256SUMS.txt" >/dev/null
+          echo "Borrador creado. Adjuntar la APK antes de publicarlo."
