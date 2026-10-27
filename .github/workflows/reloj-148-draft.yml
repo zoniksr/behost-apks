@@ -1,0 +1,42 @@
+name: Preparar borrador Reloj Be 1.1.48
+on:
+  push:
+    branches: [release/reloj-be-v1.1.48-preparacion]
+    paths: [.github/workflows/reloj-148-draft.yml]
+permissions:
+  contents: write
+jobs:
+  prepare-draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prepare draft only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          tag="reloj-be-v1.1.48"
+          gh api "repos/$repo/releases?per_page=100" > /tmp/releases.json
+          if jq -e --arg tag "$tag" 'any(.[]; .tag_name == $tag)' /tmp/releases.json >/dev/null; then
+            echo 'Release already exists. No changes.'
+            exit 0
+          fi
+          gh api "repos/$repo/contents/reloj-be/release-1.1.48.md?ref=$GITHUB_SHA" --jq .content | base64 --decode > /tmp/notes.md
+          python3 - <<'PY'
+          import re,json,base64
+          notes=open('/tmp/notes.md').read()
+          token=re.search(r'RELOJBE-DISTRIBUTION-V1\s+([A-Za-z0-9+/=]+)',notes).group(1)
+          envelope=json.loads(base64.b64decode(token)); data=json.loads(base64.b64decode(envelope['payload']))
+          assert data['version']=='1.1.48' and data['android_version_code']==50
+          assert data['sha']=='0f8b9dc5425b68c67dbfcfc19c1f87a7606c2509dc8345722f765baf8bc5ee74'
+          assert data['size']==99751595
+          open('/tmp/reloj-be-distribution.json','w').write(json.dumps(envelope)+'\n')
+          open('/tmp/SHA256SUMS.txt','w').write(data['sha']+'  '+data['name']+'\n')
+          PY
+          gh api --method POST "repos/$repo/releases" -f tag_name="$tag" -f target_commitish=main -f name='Reloj Be v1.1.48 · Huella autorizada · Pruebas' -F draft=true -F prerelease=true --raw-field body="$(cat /tmp/notes.md)" > /tmp/release.json
+          id="$(jq -r .id /tmp/release.json)"
+          gh api --method POST -H 'Content-Type: text/plain' --input /tmp/SHA256SUMS.txt "https://uploads.github.com/repos/$repo/releases/$id/assets?name=SHA256SUMS.txt" >/dev/null
+          gh api --method POST -H 'Content-Type: application/json' --input /tmp/reloj-be-distribution.json "https://uploads.github.com/repos/$repo/releases/$id/assets?name=reloj-be-distribution.json" >/dev/null
+          echo 'Borrador preparado. APK no adjunta. No se publica automáticamente.'
