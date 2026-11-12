@@ -3,7 +3,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/workflows/restaurante-2018-qa1-publicar.yml']
+    paths:
+      - '.github/workflows/restaurante-2018-qa1-publicar.yml'
+      - 'tools/verify_restaurante_2018.py'
 permissions:
   contents: read
 concurrency:
@@ -22,73 +24,12 @@ jobs:
       TAG: restaurante-be-android-v2.0.18-qa1
       SOURCE_COMMIT: fa4e37834fd8c81bbfd1a10c01db3ea8d534b456
     steps:
-      - name: Comprobar los cuatro APK existentes sin recompilar
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -u - <<'PY'
-          import glob,hashlib,json,os,pathlib,re,subprocess,time,urllib.request,zipfile
-          out=pathlib.Path('dist');out.mkdir()
-          specs=[('mesero','Mesero','mx.behost.restbe.mesero1.qa',2414593,'6efdfbdb5cfd3661597a76444c8a808332e4ef7f2be663dfcab56f18a4ab849d'),('cocina','Cocina','mx.behost.restbe.cocina1.qa',2417814,'a563f7df9859370916ff70a57a1c8941bc6e91a54d184f68f64953554c7a43b9'),('host','Hostess','mx.behost.restbe.host1.qa',2372837,'c0ead911fef9b282c95c974f8e4abf03a9b55129526428e5b7bad1f7a908ac04'),('valet','Valet','mx.behost.restbe.valet01.qa',2435320,'374e7419692e0271e9b7a496d93a2933c111c21464616e38dbc4e3a289667559')]
-          cert='cb532e0aca0d7e83fe5ab1e01eb2980eb9c59e76e54a342257e82d91ef2fc18d'
-          sdk=os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT') or '/usr/local/lib/android/sdk'
-          dirs=[pathlib.Path(p) for p in glob.glob(sdk+'/build-tools/*') if re.fullmatch(r'\d+\.\d+\.\d+',pathlib.Path(p).name)]
-          dirs=[p for p in dirs if all((p/f).is_file() for f in ('aapt','apksigner','zipalign'))]
-          tool=sorted(dirs,key=lambda p:tuple(map(int,p.name.split('.'))))[-1] if dirs else None
-          report={'version':'2.0.18-qa1','source_commit':os.environ['SOURCE_COMMIT'],'recompiled':False,'native_modifications':False,'physical_device_tested':False,'production_certified':False,'sdk':str(tool) if tool else None,'apps':[],'errors':[]}
-          def run(args):
-              r=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=90)
-              if r.returncode:raise ValueError('SDK: '+r.stdout[:5000])
-              return r.stdout
-          for role,title,package,size,digest in specs:
-              name='Restaurante_Be_'+title+'_v2.0.18-qa1.apk';a={'role':role,'file':name,'expected_package':package};report['apps'].append(a)
-              try:
-                  url='https://raw.githubusercontent.com/zoniksr/behost-apks/'+os.environ['SOURCE_COMMIT']+'/restaurante-be/2.0.18-qa1/'+name
-                  for attempt in range(3):
-                      try:
-                          with urllib.request.urlopen(url,timeout=60) as r:data=r.read(size+1)
-                          break
-                      except Exception:
-                          if attempt==2:raise
-                          time.sleep(2)
-                  a.update(bytes=len(data),sha256=hashlib.sha256(data).hexdigest())
-                  if a['bytes']!=size or a['sha256']!=digest:raise ValueError('SHA-256 o tamano no coincide con catalogo')
-                  path=out/name;path.write_bytes(data)
-                  with zipfile.ZipFile(path) as z:
-                      if z.testzip() or not {'AndroidManifest.xml','classes.dex'}.issubset(z.namelist()):raise ValueError('ZIP Android invalido')
-                  if tool is None:raise ValueError('SDK tools no disponible')
-                  signed=run([str(tool/'apksigner'),'verify','--verbose','--print-certs',str(path)])
-                  a['signature_output']=signed
-                  observed=re.findall(r'Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F:]+)',signed)
-                  if len(observed)!=1 or observed[0].replace(':','').lower()!=cert:raise ValueError('Certificado diferente del catalogo')
-                  a['signature_verified']=True;a['certificate_sha256']=cert
-                  badge=run([str(tool/'aapt'),'dump','badging',str(path)])
-                  a['package_line']=badge.splitlines()[0]
-                  for key,expected in [('name',package),('versionCode','22'),('versionName','2.0.18-qa1')]:
-                      m=re.search(r"\b"+key+r"='([^']+)'",a['package_line'])
-                      if not m or m.group(1)!=expected:raise ValueError('Identidad/version no coincide: '+key)
-                  a['debuggable']='application-debuggable' in badge
-                  if a['debuggable']:raise ValueError('APK depurable: no publicar')
-                  run([str(tool/'zipalign'),'-c','4',str(path)])
-                  a.update(identity_verified=True,alignment_verified=True,status='verified')
-              except Exception as e:
-                  a.update(status='failed',error=str(e));report['errors'].append(role+': '+str(e))
-              print(json.dumps(a,ensure_ascii=False),flush=True)
-          report['status']='verified' if not report['errors'] else 'failed'
-          (out/'VERIFICACION_ANDROID.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-          sums=[hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name for p in sorted(out.iterdir()) if p.is_file()]
-          (out/'SHA256SUMS.txt').write_text('\n'.join(sums)+'\n')
-          pathlib.Path('NOTAS.md').write_text('''# Restaurante Be Android 2.0.18-qa1
-          Hostess, Mesero, Cocina y Valet. Caja y Administracion son web.
-          Binarios originales, sin recompilacion ni modificacion nativa. Mismo commit y certificado del catalogo publicado.
-          Se verifica firma Android, SHA-256, identidad, version y alineacion. Aplicaciones de pruebas .qa instaladas por separado.
-          Backend minimo declarado 6.6.8. El diseno web actualizado requiere publicar el nuevo Implementador.
-          Esta entrega no certifica instalacion fisica, Cloudflare, QR, voz, vibracion, redes ni segundo plano. No es una version estable.
-          No incluye fuentes privadas, llaves, datos de clientes ni configuraciones. No desactivar protecciones de Android.
-          ''',encoding='utf-8')
-          if report['errors']:raise SystemExit('No publicar: hay errores de verificacion. Revisar artefacto de auditoria.')
-          PY
-      - name: Guardar binarios y evidencia para entrega
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verificar firma identidad version integridad y alineacion
+        run: python3 -u tools/verify_restaurante_2018.py
+      - name: Guardar APK y auditoria
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -96,23 +37,32 @@ jobs:
           path: dist/
           retention-days: 7
           if-no-files-found: error
-      - name: Publicar sin sobreescribir versiones
+      - name: Publicar cuatro APK de pruebas sin recompilar
         shell: bash
         run: |
           set -euo pipefail
+          cat > NOTAS.md <<'EOF'
+          # Restaurante Be Android 2.0.18-qa1
+          Hostess, Mesero, Cocina y Valet Parking. Caja y Administracion son web.
+          Binarios originales del commit fa4e37834fd8c81bbfd1a10c01db3ea8d534b456, sin recompilar ni cambiar certificados.
+          Firma Android v1/v2/v3, SHA-256, identidad, version y alineacion comprobadas con Android SDK.
+          Las interfaces operativas web se actualizan mediante el Implementador de Restaurante Be; esta publicacion no actualiza el hosting.
+          Aplicaciones .qa instaladas por separado, no reemplazan las aplicaciones sin .qa. Backend minimo declarado 6.6.8.
+          Version de pruebas. No certifica dispositivos fisicos, vinculacion QR, Cloudflare, voz, vibracion, Wi-Fi/datos ni segundo plano.
+          No contiene fuentes propietarias, llaves, credenciales ni datos de clientes. No desactivar las protecciones de Android.
+          EOF
           if gh api "repos/$GH_REPO/releases/tags/$TAG" > existing.json 2> existing.err; then
             python3 - <<'PY'
           import json,pathlib
-          release=json.loads(pathlib.Path('existing.json').read_text())
-          if release['draft']:raise SystemExit('Existe borrador anterior; requiere revision, no se modifica automaticamente.')
-          if not release['prerelease']:raise SystemExit('No tocar una version estable')
+          r=json.loads(pathlib.Path('existing.json').read_text())
+          if r['draft'] or not r['prerelease']:raise SystemExit('Publicacion previa requiere revision; no se modifica.')
           PY
             mkdir roundtrip
             gh release download "$TAG" --repo "$GH_REPO" --dir roundtrip --pattern '*.apk'
             for f in dist/*.apk; do cmp "$f" "roundtrip/$(basename "$f")"; done
           else
             grep -q 'HTTP 404' existing.err || { cat existing.err; exit 1; }
-            gh release create "$TAG" dist/*.apk dist/VERIFICACION_ANDROID.json dist/SHA256SUMS.txt --repo "$GH_REPO" --target "$SOURCE_COMMIT" --draft --prerelease --latest=false --title 'Restaurante Be Android 2.0.18-qa1 | Cuatro apps | Pruebas' --notes-file NOTAS.md
+            gh release create "$TAG" dist/*.apk dist/VERIFICACION_ANDROID.json dist/SHA256SUMS.txt --repo "$GH_REPO" --target "$SOURCE_COMMIT" --draft --prerelease --latest=false --title 'Restaurante Be Android 2.0.18-qa1 | Hostess, Mesero, Cocina y Valet' --notes-file NOTAS.md
             mkdir roundtrip
             gh release download "$TAG" --repo "$GH_REPO" --dir roundtrip
             cmp dist/SHA256SUMS.txt roundtrip/SHA256SUMS.txt
@@ -122,3 +72,9 @@ jobs:
           gh release view "$TAG" --repo "$GH_REPO" --json url,isDraft,isPrerelease,assets > RESULTADO_PUBLICACION.json
           cat RESULTADO_PUBLICACION.json
           cat RESULTADO_PUBLICACION.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Restaurante-Be-resultado-publicacion
+          path: RESULTADO_PUBLICACION.json
+          retention-days: 7
