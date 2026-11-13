@@ -16,7 +16,10 @@ android {
        cocina { dimension 'role'; applicationIdSuffix '.cocina'; buildConfigField 'String','ROLE','"cocina"'; resValue 'string','app_name','Cocina Be · Nativo QA' }
        valet { dimension 'role'; applicationIdSuffix '.valet'; buildConfigField 'String','ROLE','"valet"'; resValue 'string','app_name','Valet Be · Nativo QA' }
     }
-    buildTypes { debug { minifyEnabled false } release { minifyEnabled false } }
+    buildTypes {
+        debug { minifyEnabled false }
+        release { minifyEnabled false }
+    }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     packaging { resources { excludes += ['/META-INF/{AL2.0,LGPL2.1}'] } }
