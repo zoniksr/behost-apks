@@ -23,11 +23,14 @@ jobs:
         run: |
           set -euo pipefail
           echo "ANDROID_HOME=$ANDROID_HOME"
-          command -v sdkmanager
+          SDKM="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
+          if [ ! -x "$SDKM" ]; then SDKM="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | head -1)"; fi
+          test -x "$SDKM"
           if [ ! -f "$ANDROID_HOME/platforms/android-35/android.jar" ]; then
-            sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+            "$SDKM" --install "platforms;android-35" "build-tools;35.0.0"
           fi
           test -f "$ANDROID_HOME/platforms/android-35/android.jar"
+          echo "$ANDROID_HOME/build-tools/35.0.0" >> "$GITHUB_PATH"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
