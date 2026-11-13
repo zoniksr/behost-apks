@@ -1,0 +1,23 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'mx.behost.restaurantepeer'
+    compileSdk 35
+    defaultConfig {
+       applicationId 'mx.behost.restaurantepeer.qa'
+       minSdk 24
+       targetSdk 35
+       versionCode 1
+       versionName '0.1.0-peer-qa'
+    }
+    flavorDimensions 'role'
+    productFlavors {
+       hostess { dimension 'role'; applicationIdSuffix '.hostess'; buildConfigField 'String','ROLE','"hostess"'; resValue 'string','app_name','Hostess Be · Nativo QA' }
+       mesero { dimension 'role'; applicationIdSuffix '.mesero'; buildConfigField 'String','ROLE','"mesero"'; resValue 'string','app_name','Mesero Be · Nativo QA' }
+       cocina { dimension 'role'; applicationIdSuffix '.cocina'; buildConfigField 'String','ROLE','"cocina"'; resValue 'string','app_name','Cocina Be · Nativo QA' }
+       valet { dimension 'role'; applicationIdSuffix '.valet'; buildConfigField 'String','ROLE','"valet"'; resValue 'string','app_name','Valet Be · Nativo QA' }
+    }
+    buildTypes { debug { minifyEnabled false } release { minifyEnabled false } }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    packaging { resources { excludes += ['/META-INF/{AL2.0,LGPL2.1}'] } }
+}
