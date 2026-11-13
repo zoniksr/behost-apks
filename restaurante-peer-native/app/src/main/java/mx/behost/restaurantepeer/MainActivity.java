@@ -213,9 +213,10 @@ public final class MainActivity extends Activity {
           }
         }
       }catch(Exception e){error=e.getMessage();}
-      final String status=error.isEmpty()?"Conciliado: "+ok+" eventos":"Conciliados "+ok+"; pendiente revisión: "+error;
+      final boolean fullySynced=error.isEmpty();
+      final String status=fullySynced?"Conciliado: "+ok+" eventos":"Conciliados "+ok+"; pendiente revisión: "+error;
       runOnUiThread(()->{busy=false;try{state=peer.active()?db.hostSnapshot():db.cachedSnapshot();}catch(Exception ignored){}
-        connected=error.isEmpty();message=status;render();});
+        connected=fullySynced;message=status;render();});
     });
   }
   private void section(String title,String help){
