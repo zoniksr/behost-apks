@@ -59,6 +59,12 @@ public final class PeerCoordinator {
     }
     return ks;
   }
+  private static String[] supportedTls(String[] available){
+    java.util.ArrayList<String> out=new java.util.ArrayList<>();
+    for(String preferred:new String[]{"TLSv1.3","TLSv1.2"})for(String current:available)if(preferred.equals(current))out.add(current);
+    if(out.isEmpty())throw new SecurityException("Este dispositivo no dispone de TLS 1.2");
+    return out.toArray(new String[0]);
+  }
   public synchronized void start() throws Exception {
     if(listener!=null)throw new IllegalStateException("El nodo ya esta activo");
     KeyStore ks=keys();
@@ -69,7 +75,7 @@ public final class PeerCoordinator {
     ssl.init(km.getKeyManagers(),null,rng);
     SSLServerSocket server=(SSLServerSocket)ssl.getServerSocketFactory().createServerSocket(PORT);
     server.setReuseAddress(true);
-    server.setEnabledProtocols(new String[]{"TLSv1.2","TLSv1.3"});
+    server.setEnabledProtocols(supportedTls(server.getSupportedProtocols()));
     listener=server;
     byte[] secret=new byte[10];rng.nextBytes(secret);code=hex(secret);
     accepting.execute(()->{
@@ -156,7 +162,7 @@ public final class PeerCoordinator {
     try(SSLSocket socket=(SSLSocket)tls.getSocketFactory().createSocket()){
       socket.connect(new InetSocketAddress(address,PORT),5000);
       socket.setSoTimeout(8000);
-      socket.setEnabledProtocols(new String[]{"TLSv1.2","TLSv1.3"});
+      socket.setEnabledProtocols(supportedTls(socket.getSupportedProtocols()));
       socket.startHandshake();
       body.put("code",pin);
       try(BufferedWriter w=new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8));
