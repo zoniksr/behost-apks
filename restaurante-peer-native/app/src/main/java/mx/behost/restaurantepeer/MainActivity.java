@@ -85,9 +85,9 @@ public final class MainActivity extends Activity {
     root=vertical();root.setPadding(dp(14),dp(14),dp(14),dp(24));root.setBackgroundColor(BG);
     page=new ScrollView(this);page.setFillViewport(true);page.addView(root);setContentView(page);
     LinearLayout hero=vertical();hero.setPadding(dp(18),dp(17),dp(18),dp(18));
-    hero.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-      new int[]{Color.rgb(34,81,162),Color.rgb(40,128,189)}));
-    hero.setBackground(shape(Color.rgb(33,82,163),24,0));
+    GradientDrawable gradient=new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+      new int[]{Color.rgb(34,81,162),Color.rgb(40,128,189)});
+    gradient.setCornerRadius(dp(24));hero.setBackground(gradient);
     root.addView(hero);
     hero.addView(text(emoji()+"   RESTAURANTE BE",14,Color.rgb(219,238,255),true));
     push(hero,text(roleTitle()+" · Android nativo",23,Color.WHITE,true),7);
@@ -233,7 +233,7 @@ public final class MainActivity extends Activity {
       String status=t.optString("state"),name=t.optString("name"),area=t.optString("area");
       label(c,("libre".equals(status)?"🟢 ":"ocupada".equals(status)?"🔵 ":"🟠 ")+name+" · "+area,
         t.optInt("guests")+"/"+t.optInt("seats")+" personas · "+status);
-      if("ocupada".equals(status))push(c,text("👤 Mesero: "+t.optString("waiter")+" · Visita "+t.optString("visit").substring(0,8),12,GRAY,false),6);
+      if("ocupada".equals(status)){String visit=t.optString("visit");push(c,text("👤 Mesero: "+t.optString("waiter")+" · Visita "+visit.substring(0,Math.min(8,visit.length())),12,GRAY,false),6);}
       if("libre".equals(status))action(c,"＋ Sentar y asignar mesero",()->seat(t));
       if("ocupada".equals(status)){
         action(c,"🔄 Relevar mesero",()->handoff(t));
