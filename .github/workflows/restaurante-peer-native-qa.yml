@@ -1,0 +1,72 @@
+name: Restaurante Be · Peer Native QA
+on:
+  push:
+    branches: [restaurante-be-peer-native-qa-20261113]
+    paths:
+      - 'restaurante-peer-native/**'
+      - '.github/workflows/restaurante-peer-native-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Instalar API Android
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Compilar cuatro APK nativas QA
+        run: cd restaurante-peer-native && gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Verificar identidad, firma y ausencia de WebView
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for role in hostess mesero cocina valet; do
+            apk="restaurante-peer-native/app/build/outputs/apk/$role/debug/app-$role-debug.apk"
+            test -f "$apk"
+            aapt dump badging "$apk" | grep -F "package: name='mx.behost.restaurantepeer.qa.$role'"
+            apksigner verify --verbose "$apk"
+            if unzip -p "$apk" classes.dex | strings | grep -E 'Landroid/webkit/WebView;|Landroid/webkit/WebViewClient;'; then
+              echo "ERROR: WebView embebido" >&2
+              exit 1
+            fi
+            cp "$apk" "dist/Restaurante_Be_${role}_NATIVA_PEER_0.1.0_QA.apk"
+          done
+          if grep -R -nE 'import android.webkit|new WebView|loadUrl\\(' restaurante-peer-native/app/src/main/java; then
+            echo "ERROR: dependencia web" >&2
+            exit 1
+          fi
+          (cd restaurante-peer-native && zip -qr "../dist/Restaurante_Be_NATIVA_PEER_FUENTES_QA.zip" settings.gradle build.gradle gradle.properties app/build.gradle app/src/main)
+          (cd dist && sha256sum *.apk *.zip > SHA256SUMS.txt)
+          printf 'Compilación QA. No usar con datos reales.\nNo compatible con la firma de aplicaciones actuales.\nCaja y Administración web no se convierten en nodos TCP.\n' > dist/IMPORTANTE.txt
+      - name: Guardar APK y fuentes comprobadas
+        uses: actions/upload-artifact@v4
+        with:
+          name: Restaurante-Be-Peer-Nativo-4-APK-QA
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publicar como prerrelease de laboratorio
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="restaurante-be-peer-nativo-0.1.0-qa"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+             echo "La publicacion ya existe. No reemplazar automaticamente." >&2
+             exit 1
+          fi
+          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
+             --title "Restaurante Be | 4 APK nativas Peer QA (NO PRODUCCION)" \
+             --notes "Prototipo con pantallas Android propias, nodo TLS manual, SQLite cifrado, eventos idempotentes y borradores. Solo datos ficticios. Sin pagos, CFDI, backend productivo, Caja/Admin ni traspaso automático. Firma QA distinta de APK anteriores; no las desinstales."
+          gh release view "$TAG" --json url,isDraft,isPrerelease,assets > dist/RESULTADO_PUBLICACION.json
