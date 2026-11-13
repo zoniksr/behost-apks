@@ -18,9 +18,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Instalar API Android
-        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Usar SDK Android preinstalado
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          command -v sdkmanager
+          if [ ! -f "$ANDROID_HOME/platforms/android-35/android.jar" ]; then
+            sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          fi
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
