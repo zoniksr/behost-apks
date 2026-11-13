@@ -1,0 +1,58 @@
+name: Restaurante Be - compilar cuatro Android nativas QA
+on:
+  push:
+    branches: [feature/restaurante-native-offline-20261113]
+    paths:
+      - 'restaurante-be/native-offline/**'
+      - '.github/workflows/restaurante-native-offline-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Instalar SDK Android
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Extraer fuentes inmutables
+        run: |
+          set -euo pipefail
+          cd restaurante-be/native-offline
+          unzip -t native-android-source.zip
+          unzip -q native-android-source.zip
+          test -f android/app/src/main/java/mx/behost/restaurantenative/MainActivity.java
+          ! grep -R 'import android.webkit' android/app/src/main/java
+          ! grep -R 'new WebView(' android/app/src/main/java
+          ! grep -R 'setJavaScriptEnabled(' android/app/src/main/java
+      - name: Compilar cuatro variantes nativas
+        run: |
+          gradle --no-daemon -p restaurante-be/native-offline/android :app:assembleMeseroDebug :app:assembleCocinaDebug :app:assembleHostessDebug :app:assembleValetDebug
+      - name: Auditoria APK - ningun WebView
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd restaurante-be/native-offline/android
+          count=$(find app/build/outputs/apk -name '*.apk' | wc -l)
+          test "$count" -eq 4
+          for f in $(find app/build/outputs/apk -name '*.apk'); do
+            echo "APK: $f"
+            sha256sum "$f"
+            apksigner verify --verbose --print-certs "$f"
+            aapt dump badging "$f" | head -2
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Restaurante-Be-Android-CUATRO-NATIVAS-QA-NO_PRODUCCION
+          path: restaurante-be/native-offline/android/app/build/outputs/apk/**/*.apk
+          retention-days: 7
+          if-no-files-found: error
