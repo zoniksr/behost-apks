@@ -1,0 +1,68 @@
+{
+  "product": "Restaurante Be",
+  "channel": "native-candidate-qa",
+  "stable": false,
+  "production_tested": false,
+  "native_phone_coordinator": false,
+  "cloud_event_sync": false,
+  "base_web": "6.7.6",
+  "apps": [
+    {
+      "role": "cocina",
+      "file": "RestauranteBe_cocina_0.2.0_CANDIDATO_QA.apk",
+      "bytes": 90855,
+      "sha256": "987f6e61adf5aa70dd9d80a82694a2d7a398cd4f9f4cb6d3a61ae440822b216e",
+      "application_id": "mx.behost.restaurantenative.candidate.cocina",
+      "version_code": 2,
+      "version_name": "0.2.0-native-candidate",
+      "min_sdk": 24,
+      "target_sdk": 35,
+      "debuggable": true,
+      "signing": "DEBUG_QA_ONLY",
+      "certificate_sha256": "6657da45261be21b21184ddf6bca3ea64fc5488398531a589a6086a26abed4eb"
+    },
+    {
+      "role": "hostess",
+      "file": "RestauranteBe_hostess_0.2.0_CANDIDATO_QA.apk",
+      "bytes": 90807,
+      "sha256": "bb07b04673e554c91ad28e76c0236e237f63093fa4210616c238c693afbe66c3",
+      "application_id": "mx.behost.restaurantenative.candidate.hostess",
+      "version_code": 2,
+      "version_name": "0.2.0-native-candidate",
+      "min_sdk": 24,
+      "target_sdk": 35,
+      "debuggable": true,
+      "signing": "DEBUG_QA_ONLY",
+      "certificate_sha256": "6657da45261be21b21184ddf6bca3ea64fc5488398531a589a6086a26abed4eb"
+    },
+    {
+      "role": "mesero",
+      "file": "RestauranteBe_mesero_0.2.0_CANDIDATO_QA.apk",
+      "bytes": 90843,
+      "sha256": "52c824abbbc5f9ca44f233c6c4e25f26a777815014bd840dc19af0f6371e6044",
+      "application_id": "mx.behost.restaurantenative.candidate.mesero",
+      "version_code": 2,
+      "version_name": "0.2.0-native-candidate",
+      "min_sdk": 24,
+      "target_sdk": 35,
+      "debuggable": true,
+      "signing": "DEBUG_QA_ONLY",
+      "certificate_sha256": "6657da45261be21b21184ddf6bca3ea64fc5488398531a589a6086a26abed4eb"
+    },
+    {
+      "role": "valet",
+      "file": "RestauranteBe_valet_0.2.0_CANDIDATO_QA.apk",
+      "bytes": 90871,
+      "sha256": "8e7d7fe4147fed14e937d392173db5743a3db1a02f44e4d69d3b824867d9a316",
+      "application_id": "mx.behost.restaurantenative.candidate.valet",
+      "version_code": 2,
+      "version_name": "0.2.0-native-candidate",
+      "min_sdk": 24,
+      "target_sdk": 35,
+      "debuggable": true,
+      "signing": "DEBUG_QA_ONLY",
+      "certificate_sha256": "6657da45261be21b21184ddf6bca3ea64fc5488398531a589a6086a26abed4eb"
+    }
+  ]
+}
+
