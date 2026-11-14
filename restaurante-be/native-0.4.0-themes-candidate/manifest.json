@@ -1,0 +1,77 @@
+{
+  "product": "Restaurante Be",
+  "design": "Be Glass Themes",
+  "channel": "native-candidate-qa",
+  "stable": false,
+  "production_tested": false,
+  "device_ui_tested": false,
+  "native_phone_coordinator": false,
+  "cloud_event_sync": false,
+  "base_web": "6.7.6",
+  "ui_build": "2026.11.13.glass.2",
+  "themes": [
+    "aurora",
+    "oceano",
+    "jardin",
+    "atardecer",
+    "medianoche"
+  ],
+  "apps": [
+    {
+      "role": "hostess",
+      "file": "RestauranteBe_hostess_0.4.0_TEMAS_QA.apk",
+      "bytes": 212981,
+      "sha256": "2ccb3a41088cb3fdd39e9c0a33d0e6d751431c4c0525cf3ee3f59a5fa31f4af9",
+      "application_id": "mx.behost.restaurantenative.candidate.hostess",
+      "version_code": 4,
+      "version_name": "0.4.0-themes-candidate",
+      "certificate_sha256": "6657da45261be21b21184ddf6bca3ea64fc5488398531a589a6086a26abed4eb",
+      "min_sdk": 24,
+      "target_sdk": 35,
+      "debuggable": true,
+      "signing": "DEBUG_QA_ONLY"
+    },
+    {
+      "role": "mesero",
+      "file": "RestauranteBe_mesero_0.4.0_TEMAS_QA.apk",
+      "bytes": 213022,
+      "sha256": "9b0609abd509bb97bf0c6008d3a544ad9ae996d3f7f765e857b3b4d1156c0aae",
+      "application_id": "mx.behost.restaurantenative.candidate.mesero",
+      "version_code": 4,
+      "version_name": "0.4.0-themes-candidate",
+      "certificate_sha256": "6657da45261be21b21184ddf6bca3ea64fc5488398531a589a6086a26abed4eb",
+      "min_sdk": 24,
+      "target_sdk": 35,
+      "debuggable": true,
+      "signing": "DEBUG_QA_ONLY"
+    },
+    {
+      "role": "cocina",
+      "file": "RestauranteBe_cocina_0.4.0_TEMAS_QA.apk",
+      "bytes": 213009,
+      "sha256": "a567be28e76222b4f8b23b8da73d89c3d6d2a54709c5e0fe2c4f6fd266ef9be1",
+      "application_id": "mx.behost.restaurantenative.candidate.cocina",
+      "version_code": 4,
+      "version_name": "0.4.0-themes-candidate",
+      "certificate_sha256": "6657da45261be21b21184ddf6bca3ea64fc5488398531a589a6086a26abed4eb",
+      "min_sdk": 24,
+      "target_sdk": 35,
+      "debuggable": true,
+      "signing": "DEBUG_QA_ONLY"
+    },
+    {
+      "role": "valet",
+      "file": "RestauranteBe_valet_0.4.0_TEMAS_QA.apk",
+      "bytes": 212978,
+      "sha256": "a1e55c717305dca24a31b4bb911740b7c24c771ae3c7161831bd3d69a58f5b85",
+      "application_id": "mx.behost.restaurantenative.candidate.valet",
+      "version_code": 4,
+      "version_name": "0.4.0-themes-candidate",
+      "certificate_sha256": "6657da45261be21b21184ddf6bca3ea64fc5488398531a589a6086a26abed4eb",
+      "min_sdk": 24,
+      "target_sdk": 35,
+      "debuggable": true,
+      "signing": "DEBUG_QA_ONLY"
+    }
+  ]
+}
