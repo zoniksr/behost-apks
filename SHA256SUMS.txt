@@ -1,0 +1,6 @@
+f55fefc7132e0fbd5ca10c8127be2087c4621b93ffcc822aaf665a0fe5b44f57  comedor-be/1.2.25/Comedor_Be_Cocina_v1.2.25.apk
+0ea315c458c84fbe807ed1a5e639be073306ed316c19cde72879eea8a79f367b  comedor-be/1.2.25/Comedor_Be_Ventas_v1.2.25.apk
+70257e1d0db81288a53e7cc2ddb72bd85cf1be09a4be366a6b86d70496e2528b  evento-be/1.0.4/Evento_Be_Acceso_v1.0.4.apk
+b8e19d05864c91fe7b0a332bc2f93dcb3b2ca2e09894a461ab94c927f2b09ed9  reloj-checador-be/1.1.31/Reloj_Checador_Be_Trabajador_v1.1.31.apk
+7aa21b64a6b5830b4f449af9e948b41e2c369dcc87f20cefba9f29899223d280  reloj-checador-be/1.1.35/Reloj_Checador_Be_Trabajador_v1.1.35.apk
+b38c9bbd5d6dcabe82bc3396d50c485517a7b4c1bc53a0a58455f4a63630e6cd  reloj-checador-be/1.1.39-pruebas/Reloj_Checador_Be_Trabajador_v1.1.39_PRUEBAS.apk
