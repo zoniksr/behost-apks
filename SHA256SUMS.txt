@@ -1,0 +1,4 @@
+09f8c05ae72b652290c199f1907f4d97ffdd9939a306d665bda5ffdae10f7073  restaurante-be/native-0.6.0-comedor-design-candidate/RestauranteBe_hostess_0.6.0_COMEDOR_DISENO_QA.apk
+08d8737d5c8fe2abcce9cb27affc4d88607676515b8d6e207f3de45fcd6b6099  restaurante-be/native-0.6.0-comedor-design-candidate/RestauranteBe_mesero_0.6.0_COMEDOR_DISENO_QA.apk
+d8ccd2b3c26d6a1f22531762cdbb79039e6d9e61e573163567f610e1fb849094  restaurante-be/native-0.6.0-comedor-design-candidate/RestauranteBe_cocina_0.6.0_COMEDOR_DISENO_QA.apk
+0238faec01f615c9898a8cd687f2ee8698fc2055eb84dff35ed888a65e8173e3  restaurante-be/native-0.6.0-comedor-design-candidate/RestauranteBe_valet_0.6.0_COMEDOR_DISENO_QA.apk
